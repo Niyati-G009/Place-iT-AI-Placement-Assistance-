@@ -30,7 +30,7 @@ MODEL_NAME = "google/gemini-2.0-flash-001"
 ELEVENLABS_API_KEY = 'sk_1face4687533aebeac9229f37584f4b2e689f3ad0d093a57'
 ELEVENLABS_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"
 
-CORS(app, resources={r"/*": {"origins": ["http://127.0.0.1:5000", "http://localhost:5000"]}})
+CORS(app)
 
 # --- HELPER FUNCTIONS ---
 
