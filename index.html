@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Place-it | AI Student Placement</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+    <!-- Clerk Auth -->
+    <script
+        async crossorigin="anonymous"
+        data-clerk-publishable-key="pk_test_dXNhYmxlLW1hbmF0ZWUtOC5jbGVyay5hY2NvdW50cy5kZXYk"
+        src="https://allowed-mink-33.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript">
+    </script>
+</head>
+
+<body>
+
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <!-- ==================== LANDING PAGE ==================== -->
+    <section id="landing-page">
+        <div class="content-wrapper">
+            <h1 class="logo-large">Place-iT</h1>
+            <h2 class="subtitle">You Ask. I Assist.</h2>
+            <button class="btn-primary" onclick="goToAuth()">
+                Get Started <i class="ri-arrow-right-line"></i>
+            </button>
+        </div>
+        <div class="features-grid">
+            <div class="glass-card">
+                <h3>Smart Matching</h3>
+                <p>AI-powered job recommendations tailored to your skills.</p>
+            </div>
+            <div class="glass-card">
+                <h3>Interview Prep</h3>
+                <p>Practice with realistic scenarios and instant feedback.</p>
+            </div>
+            <div class="glass-card">
+                <h3>Career Insights</h3>
+                <p>Data-driven career guidance to map your future.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== AUTH PAGE ==================== -->
+    <section id="auth-page">
+        <div class="back-link" style="position:absolute;top:40px;left:40px;cursor:pointer;color:var(--tan);" onclick="goToLanding()">
+            <i class="ri-arrow-left-line"></i> Back
+        </div>
+        <div class="auth-container">
+            <div id="clerk-auth-ui"></div>
+        </div>
+    </section>
+
+    <!-- ==================== DASHBOARD PAGE ==================== -->
+    <div id="dashboard-page">
+
+        <!-- Main Sidebar -->
+        <nav id="main-sidebar" class="sidebar">
+            <div class="sidebar-top-controls">
+                <div class="ctrl-icon-btn" onclick="toggleSidebar()" title="Toggle Menu">
+                    <i class="ri-menu-line"></i>
+                </div>
+                <!-- REMOVED: New Chat button from main sidebar -->
+            </div>
+            <div id="sidebar-content-wrapper">
+                <div class="sidebar-logo">
+                    <i class="ri-robot-2-line"></i> place-it
+                </div>
+                <div class="nav-menu">
+                    <div class="nav-item active" onclick="switchTab('home', this)">
+                        <i class="ri-dashboard-line"></i> Dashboard
+                    </div>
+                    <div class="nav-item" onclick="enterChatMode()">
+                        <i class="ri-chat-3-line"></i> AI Assistant
+                    </div>
+                    <div class="nav-item" onclick="switchTab('resume', this)">
+                        <i class="ri-file-user-line"></i> Resume
+                    </div>
+                    <div class="nav-item" onclick="switchTab('about', this)">
+                        <i class="ri-team-line"></i> About Us
+                    </div>
+                </div>
+                <div class="user-profile">
+                    <div class="avatar" id="sidebar-avatar"></div>
+                    <div class="user-info" onclick="switchTab('profile', this)" style="cursor:pointer;flex:1;">
+                        <div id="display-sidebar-name">Student User</div>
+                        <div style="font-size:0.7rem;color:var(--tan);">Edit Profile</div>
+                    </div>
+                    <div class="logout-btn" onclick="handleSignOut()" title="Sign Out" style="cursor:pointer;padding:5px;color:var(--tan);">
+                        <i class="ri-logout-box-r-line" style="font-size:1.2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Chat Sidebar -->
+        <nav id="chat-sidebar" class="sidebar hidden" style="background:rgba(0,0,0,0.4);">
+            <div class="back-to-dash" onclick="exitChatMode()">
+                <i class="ri-arrow-left-s-line"></i> Back to Dashboard
+            </div>
+            <div class="history-header" style="margin-bottom:20px;">
+                <button class="new-chat-btn" onclick="startNewChat()">
+                    <i class="ri-add-line"></i> New Chat
+                </button>
+            </div>
+            <div class="history-list" id="history-list"></div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- ============ HOME / DASHBOARD ============ -->
+            <div id="view-home" class="fade-in dashboard-container">
+                <div class="update-context">Last updated: Just now</div>
+
+                <!-- TOP STATS ROW — now 2 columns (removed streak) -->
+                <div class="stats-grid">
+                    <div class="stat-card hero-ats">
+                        <div class="stat-label">Current ATS Score</div>
+                        <div id="dash-ats" class="stat-value">—</div>
+                        <div class="hero-glow"></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Academic CGPA</div>
+                        <div id="dash-cgpa" class="stat-value">—</div>
+                    </div>
+                </div>
+
+                <!-- PLACEMENT READINESS ROW -->
+                <div style="margin-bottom:22px;">
+                    <div class="glass-card readiness-card" style="padding:22px 26px;border-radius:16px;border:1px solid rgba(213,184,147,0.2);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                            <div>
+                                <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Placement Readiness</div>
+                                <div style="display:flex;align-items:baseline;gap:8px;">
+                                    <span id="placement-readiness-score" style="font-size:2rem;font-weight:700;color:#fff;">—</span>
+                                    <span id="placement-readiness-label" style="font-size:0.85rem;color:var(--tan);">Calculating…</span>
+                                </div>
+                            </div>
+                            <div style="width:48px;height:48px;border-radius:50%;background:rgba(213,184,147,0.1);border:1px solid rgba(213,184,147,0.3);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">
+                                🎯
+                            </div>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.25);border-radius:6px;height:8px;overflow:hidden;">
+                            <div id="placement-readiness-bar" style="height:100%;width:0%;border-radius:6px;transition:width 1s cubic-bezier(0.4,0,0.2,1);background:linear-gradient(90deg,#2ecc71,#27ae60);"></div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:0.75rem;color:var(--text-muted);">
+                            <span><i class="ri-file-user-line"></i> ATS Score (40%)</span>
+                            <span><i class="ri-graduation-cap-line"></i> CGPA (30%)</span>
+                            <span><i class="ri-user-line"></i> Profile (30%)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QUICK ACTION CARDS — 2 tiles only -->
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:22px;">
+                    <div onclick="enterChatMode();setTimeout(()=>fillInput('Give me 5 coding interview questions for DSA round'),400)" class="quick-action-tile" style="background:rgba(255,255,255,0.04);border:1px solid rgba(166,95,236,0.2);border-radius:14px;padding:22px;cursor:pointer;transition:all 0.25s;display:flex;align-items:center;gap:14px;" onmouseenter="this.style.background='rgba(166,95,236,0.08)';this.style.transform='translateY(-2px)'" onmouseleave="this.style.background='rgba(255,255,255,0.04)';this.style.transform='translateY(0)'">
+                        <div style="width:48px;height:48px;border-radius:12px;background:rgba(166,95,236,0.15);border:1px solid rgba(166,95,236,0.3);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;">🧠</div>
+                        <div>
+                            <div style="color:#a65fec;font-weight:600;font-size:0.92rem;">DSA Practice</div>
+                            <div style="color:var(--text-muted);font-size:0.78rem;margin-top:2px;">Coding questions today</div>
+                        </div>
+                    </div>
+                    <div onclick="enterChatMode();setTimeout(()=>fillInput('Take my HR Mock Interview'),400)" class="quick-action-tile" style="background:rgba(255,255,255,0.04);border:1px solid rgba(46,204,113,0.2);border-radius:14px;padding:22px;cursor:pointer;transition:all 0.25s;display:flex;align-items:center;gap:14px;" onmouseenter="this.style.background='rgba(46,204,113,0.08)';this.style.transform='translateY(-2px)'" onmouseleave="this.style.background='rgba(255,255,255,0.04)';this.style.transform='translateY(0)'">
+                        <div style="width:48px;height:48px;border-radius:12px;background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.3);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;">🎤</div>
+                        <div>
+                            <div style="color:#2ecc71;font-weight:600;font-size:0.92rem;">Mock Interview</div>
+                            <div style="color:var(--text-muted);font-size:0.78rem;margin-top:2px;">Practice with AI now</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GET 1% BETTER CARD -->
+                <section class="one-percent-wrapper" style="padding:0;margin-bottom:22px;">
+                    <div class="one-percent-card">
+                        <div class="one-percent-header">
+                            <h3>Get 1% Better Today</h3>
+                            <span class="pulse-dot"></span>
+                        </div>
+                        <p class="one-percent-text" id="onePercentText">
+                            Recruiters reject resumes in under 7 seconds. Make your first bullet point quantifiable.
+                        </p>
+                        <div class="one-percent-actions">
+                            <button class="act-btn" id="actBtn">💪 I'll act on this</button>
+                            <button class="next-btn" id="nextBtn">Give me another →</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- FAQ SECTION -->
+                <h3 class="section-title" style="margin-bottom:14px;color:var(--tan);font-size:1rem;font-weight:600;display:flex;align-items:center;gap:8px;"><i class="ri-question-answer-line"></i> Placement FAQs</h3>
+                <div class="faq-wrapper">
+                    <div class="faq-accordion-card">
+                        <div class="faq-accordion-content">
+                            <div class="faq-q">What is an ATS Score?</div>
+                            <div class="faq-a">It measures how well your resume matches job descriptions for automated screening systems used by top companies.</div>
+                        </div>
+                    </div>
+                    <div class="faq-accordion-card">
+                        <div class="faq-accordion-content">
+                            <div class="faq-q">How to improve CGPA?</div>
+                            <div class="faq-a">Focus on consistent study habits and active participation in practical labs and projects.</div>
+                        </div>
+                    </div>
+                    <div class="faq-accordion-card">
+                        <div class="faq-accordion-content">
+                            <div class="faq-q">Best Internship Time?</div>
+                            <div class="faq-a">Summer breaks between 2nd and 3rd year are most critical for building industry experience.</div>
+                        </div>
+                    </div>
+                    <div class="faq-accordion-card">
+                        <div class="faq-accordion-content">
+                            <div class="faq-q">Skills in Demand?</div>
+                            <div class="faq-a">Full-stack development, AI/ML, and Cloud architecture are top priorities in 2025.</div>
+                        </div>
+                    </div>
+                    <div class="faq-accordion-card">
+                        <div class="faq-accordion-content">
+                            <div class="faq-q">Coding Practice?</div>
+                            <div class="faq-a">Use LeetCode or GeeksForGeeks daily to strengthen your DSA — aim for 2-3 problems per day.</div>
+                        </div>
+                    </div>
+                    <div class="faq-accordion-card">
+                        <div class="faq-accordion-content">
+                            <div class="faq-q">What is STAR Method?</div>
+                            <div class="faq-a">A proven technique for behavioral interview answers: Situation, Task, Action, Result.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ ABOUT VIEW ============ -->
+            <div id="view-about" class="hidden fade-in">
+                <div class="dashboard-header">
+                    <h1>About Place-iT</h1>
+                    <p style="color:var(--text-muted);">Empowering students through AI-driven career intelligence.</p>
+                </div>
+                <div class="glass-card about-card" style="padding:32px;border-radius:20px;margin-bottom:25px;">
+                    <h3 style="color:var(--tan);margin-top:0;display:flex;align-items:center;gap:10px;"><i class="ri-rocket-line"></i> Our Mission</h3>
+                    <p style="line-height:1.7;color:#fff;">Place-iT bridges the gap between academics and the professional world using high-speed AI resume analysis, mock interviews, and intelligent career coaching.</p>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin-bottom:30px;">
+                    <div class="glass-card" style="padding:25px;border-radius:16px;">
+                        <h4 style="color:#facc15;margin-top:0;"><i class="ri-file-search-line"></i> Resume Intelligence</h4>
+                        <p style="font-size:0.9rem;color:var(--text-muted);line-height:1.6;">AI-powered ATS scoring, keyword matching, and actionable feedback to improve your resume visibility.</p>
+                    </div>
+                    <div class="glass-card" style="padding:25px;border-radius:16px;">
+                        <h4 style="color:#a65fec;margin-top:0;"><i class="ri-chat-smile-3-line"></i> AI Career Coach</h4>
+                        <p style="font-size:0.9rem;color:var(--text-muted);line-height:1.6;">Get real-time interview practice, coding help, and placement guidance tailored to your profile.</p>
+                    </div>
+                    <div class="glass-card" style="padding:25px;border-radius:16px;">
+                        <h4 style="color:#2ecc71;margin-top:0;"><i class="ri-bar-chart-grouped-line"></i> Career Insights</h4>
+                        <p style="font-size:0.9rem;color:var(--text-muted);line-height:1.6;">Understand industry trends, in-demand skills, and placement readiness through data-driven insights.</p>
+                    </div>
+                </div>
+                <div class="glass-card" style="padding:30px;border-radius:20px;margin-bottom:30px;">
+                    <h3 style="color:var(--tan);margin-top:0;display:flex;align-items:center;gap:10px;"><i class="ri-flow-chart"></i> How Place-iT Works</h3>
+                    <div style="display:flex;flex-wrap:wrap;gap:20px;margin-top:20px;">
+                        <div style="flex:1;min-width:200px;"><p style="color:#fff;"><strong>1️⃣ Build Your Profile</strong></p><p style="color:var(--text-muted);font-size:0.9rem;">Add academic details, skills, and career goals.</p></div>
+                        <div style="flex:1;min-width:200px;"><p style="color:#fff;"><strong>2️⃣ Analyze & Improve</strong></p><p style="color:var(--text-muted);font-size:0.9rem;">Get resume ATS scores, missing skills, and improvement tips.</p></div>
+                        <div style="flex:1;min-width:200px;"><p style="color:#fff;"><strong>3️⃣ Prepare & Succeed</strong></p><p style="color:var(--text-muted);font-size:0.9rem;">Practice interviews, coding, and soft skills with AI.</p></div>
+                    </div>
+                </div>
+                <div class="glass-card" style="padding:30px;border-radius:20px;">
+                    <h3 style="color:var(--tan);margin-top:0;display:flex;align-items:center;gap:10px;"><i class="ri-eye-line"></i> Our Vision</h3>
+                    <p style="line-height:1.7;color:#fff;">To become a trusted AI-powered placement companion for every student — helping them transition confidently from college to career.</p>
+                </div>
+                <section class="team-section">
+                    <h2 class="team-heading">Meet the Team</h2>
+                    <div class="team-grid">
+                        <div class="team-card"><h3>Niyati Govarani</h3><a href="https://www.linkedin.com/in/niyati-govarani-5b5a71376/" target="_blank" rel="noopener noreferrer" class="linkedin-btn"><i class="ri-linkedin-fill" style="font-size:40px;color:#0A66C2;"></i> View LinkedIn</a></div>
+                        <div class="team-card"><h3>Keyur Amlani</h3><a href="https://www.linkedin.com/in/keyur-amlani-411b88378/" target="_blank" rel="noopener noreferrer" class="linkedin-btn"><i class="ri-linkedin-fill" style="font-size:40px;color:#0A66C2;"></i> View LinkedIn</a></div>
+                        <div class="team-card"><h3>Krisha Thakkar</h3><a href="https://www.linkedin.com/in/krisha-thakkar-666269386/" target="_blank" rel="noopener noreferrer" class="linkedin-btn"><i class="ri-linkedin-fill" style="font-size:40px;color:#0A66C2;"></i> View LinkedIn</a></div>
+                        <div class="team-card"><h3>Mahek Prajapati</h3><a href="https://www.linkedin.com/in/mahek-prajapati-126692387/" target="_blank" rel="noopener noreferrer" class="linkedin-btn"><i class="ri-linkedin-fill" style="font-size:40px;color:#0A66C2;"></i> View LinkedIn</a></div>
+                        <div class="team-card"><h3>Abhishek Thakur</h3><a href="https://www.linkedin.com/in/abhishek-thakur-7a2579375/" target="_blank" rel="noopener noreferrer" class="linkedin-btn"><i class="ri-linkedin-fill" style="font-size:40px;color:#0A66C2;"></i> View LinkedIn</a></div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ============ RESUME VIEW ============ -->
+            <div id="view-resume" class="hidden fade-in" style="height:100%;padding-top:20px;">
+                <div class="resume-dashboard-container" style="position:relative;">
+                    <!-- Upload / Input Section -->
+                    <div id="resume-upload-section" class="glass-card" style="flex:3;display:flex;flex-direction:column;padding:28px;border:1px solid rgba(255,255,255,0.1);border-radius:16px;">
+                        <div class="analyzer-header" style="margin-bottom:22px;">
+                            <h2 style="font-size:1.6rem;font-weight:600;margin:0 0 4px;color:#fff;display:flex;align-items:center;gap:10px;">
+                                <i class="ri-file-search-line" style="color:var(--tan);"></i> Resume Intelligence
+                            </h2>
+                            <p style="margin:0;color:var(--text-muted);font-size:0.85rem;">Compare your resume against a specific Job Description to get a real ATS score.</p>
+                        </div>
+                        <div class="input-split-container" style="display:flex;gap:18px;flex:1;">
+                            <div class="input-column" style="flex:1;display:flex;flex-direction:column;">
+                                <div style="display:flex;justify-content:space-between;margin-bottom:10px;align-items:center;">
+                                    <label style="color:var(--tan);font-weight:500;font-size:0.9rem;">1. Your Resume</label>
+                                    <div class="toggle-tabs" style="display:flex;gap:5px;">
+                                        <button class="mini-btn" id="tab-upload" onclick="switchResumeMode('upload')" style="font-size:0.78rem;padding:4px 10px;border-radius:5px;background:var(--tan);color:var(--space-cadet);border:none;cursor:pointer;font-weight:600;">Upload</button>
+                                        <button class="mini-btn" id="tab-paste" onclick="switchResumeMode('paste')" style="font-size:0.78rem;padding:4px 10px;border-radius:5px;background:rgba(255,255,255,0.1);color:white;border:none;cursor:pointer;">Paste</button>
+                                    </div>
+                                </div>
+                                <div id="mode-upload" class="analyzer-content active" style="flex:1;">
+                                    <div class="analyzer-upload-area" style="height:100%;border:2px dashed rgba(255,255,255,0.2);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;background:rgba(0,0,0,0.1);transition:all 0.3s ease;">
+                                        <i class="ri-file-pdf-line" style="font-size:3rem;color:var(--text-muted);margin-bottom:10px;"></i>
+                                        <p style="color:var(--text-muted);font-size:0.9rem;margin:0;">Drop PDF/DOCX here</p>
+                                        <p style="color:rgba(255,255,255,0.3);font-size:0.75rem;margin:4px 0 0;">or click to browse</p>
+                                        <input type="file" id="resume-file-input" accept=".pdf,.docx,.txt" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;" onchange="handleResumeUpload(this)">
+                                    </div>
+                                </div>
+                                <div id="mode-paste" class="analyzer-content hidden" style="flex:1;">
+                                    <textarea id="resume-text-area" placeholder="Paste resume text here..." style="width:100%;height:100%;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:15px;color:#fff;resize:none;font-family:'Poppins',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;"></textarea>
+                                </div>
+                            </div>
+                            <div class="input-column" style="flex:1;display:flex;flex-direction:column;">
+                                <label style="color:var(--tan);font-weight:500;margin-bottom:10px;font-size:0.9rem;">2. Job Description <span style="color:var(--text-muted);font-weight:400;">(Optional)</span></label>
+                                <textarea id="jd-text-area" placeholder="Paste the Job Description here to check keyword matching and get a more accurate ATS score..." style="flex:1;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:15px;color:#fff;resize:none;font-family:'Poppins',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;"></textarea>
+                            </div>
+                        </div>
+                        <button onclick="analyzeText()" class="btn-primary" style="margin-top:18px;width:100%;justify-content:center;font-size:1rem;padding:14px;border-radius:12px;">
+                            <i class="ri-rocket-line"></i> Analyze Match Score
+                        </button>
+                    </div>
+
+                    <!-- Results Section -->
+                    <div id="resume-result-section" class="glass-card hidden" style="flex:3;display:flex;flex-direction:column;padding:28px;border:1px solid rgba(255,255,255,0.1);border-radius:16px;overflow-y:auto;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                            <h2 style="color:var(--tan);margin:0;font-size:1.3rem;"><i class="ri-pie-chart-2-line"></i> Analysis Report</h2>
+                            <button onclick="closeResumeResults()" style="background:transparent;border:1px solid var(--text-muted);color:var(--text-muted);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.82rem;">
+                                <i class="ri-close-line"></i> Close
+                            </button>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;">
+                            <div class="score-box" style="background:rgba(46,204,113,0.1);border:1px solid #2ecc71;padding:15px;border-radius:12px;text-align:center;">
+                                <div id="res-score" style="font-size:2.2rem;font-weight:700;color:#2ecc71;">—</div>
+                                <div style="font-size:0.78rem;color:#fff;margin-top:2px;">ATS Match</div>
+                            </div>
+                            <div class="score-box" style="background:rgba(166,95,236,0.1);border:1px solid #a65fec;padding:15px;border-radius:12px;text-align:center;">
+                                <div id="res-level" style="font-size:1.1rem;font-weight:600;color:#a65fec;margin-top:8px;">—</div>
+                                <div style="font-size:0.78rem;color:#fff;margin-top:4px;">Experience Level</div>
+                            </div>
+                            <div class="score-box" style="background:rgba(255,153,102,0.1);border:1px solid #ff9966;padding:15px;border-radius:12px;text-align:center;">
+                                <div id="res-keywords" style="font-size:2.2rem;font-weight:700;color:#ff9966;">—</div>
+                                <div style="font-size:0.78rem;color:#fff;margin-top:2px;">Keywords Found</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:18px;">
+                            <div style="background:rgba(0,0,0,0.2);padding:18px;border-radius:12px;border-left:4px solid #e74c3c;">
+                                <h4 style="color:#e74c3c;margin-top:0;margin-bottom:10px;font-size:0.9rem;"><i class="ri-alarm-warning-line"></i> Missing Important Skills</h4>
+                                <div id="res-missing-keywords" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                            </div>
+                            <div style="background:rgba(0,0,0,0.2);padding:18px;border-radius:12px;">
+                                <h4 style="color:var(--tan);margin-top:0;font-size:0.9rem;"><i class="ri-list-check"></i> Actionable Feedback</h4>
+                                <ul id="res-tips" style="padding-left:20px;color:var(--text-muted);font-size:0.88rem;line-height:1.7;margin:0;"></ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Scans Sidebar -->
+                    <div class="recent-scans-sidebar" style="flex:1;display:flex;flex-direction:column;gap:14px;min-width:200px;max-width:240px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <h3 style="color:var(--tan);margin:0;font-size:1rem;display:flex;align-items:center;gap:8px;">
+                                <i class="ri-history-line"></i> Recent Scans
+                            </h3>
+                            <span id="scans-count" style="font-size:0.75rem;color:var(--text-muted);background:rgba(255,255,255,0.07);padding:2px 8px;border-radius:10px;"></span>
+                        </div>
+                        <div id="recent-scans-list" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1;padding-right:2px;"></div>
+                    </div>
+
+                    <div id="scanning-overlay" class="hidden" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(37,52,79,0.95);z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(10px);border-radius:16px;">
+                        <div class="scanner-line"></div>
+                        <h3 style="color:#fff;font-weight:400;margin-top:30px;">Extracting Skills & Analyzing…</h3>
+                        <p style="color:var(--text-muted);font-size:0.9rem;">AI is performing deep resume analysis. Please wait.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ CHAT VIEW ============ -->
+            <div id="view-chat" class="hidden fade-in" style="height:100%;">
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <h3 style="margin:0 0 2px;"><i class="ri-sparkling-fill" style="color:#a65fec;"></i> AI Career Coach</h3>
+                                <p style="font-size:0.78rem;color:var(--text-muted);margin:0;">Online | Ready to assist</p>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <div onclick="downloadTranscript()" title="Download Transcript" style="cursor:pointer;font-size:1.2rem;color:var(--tan);"><i class="ri-download-2-line"></i></div>
+                                <select id="voice-select" class="chat-input" style="padding:5px 10px;font-size:0.7rem;width:auto;height:auto;border-radius:5px;"></select>
+                                <div onclick="toggleVoice()" id="voice-toggle" style="cursor:pointer;font-size:1.4rem;color:var(--tan);"><i class="ri-volume-up-fill"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="messages-area" id="chat-box"></div>
+                    <div id="suggestions-box" class="suggestions-grid">
+                        <div class="suggestion-chip" onclick="fillInput('Take my HR Mock Interview')">
+                            <span class="suggestion-header">Mock Interview</span>
+                            Practice behavioral questions.
+                        </div>
+                        <div class="suggestion-chip" onclick="fillInput('Review my resume for mistakes')">
+                            <span class="suggestion-header">Resume Review</span>
+                            Find errors and improve wording.
+                        </div>
+                        <div class="suggestion-chip" onclick="fillInput('Give me 5 SQL practice questions')">
+                            <span class="suggestion-header">Technical Prep</span>
+                            Practice SQL, Python, or C++.
+                        </div>
+                        <div class="suggestion-chip" onclick="fillInput('How to introduce myself in an interview?')">
+                            <span class="suggestion-header">Soft Skills</span>
+                            Craft a perfect introduction.
+                        </div>
+                    </div>
+                    <div class="input-area">
+                        <input type="text" class="chat-input" id="user-input" placeholder="Type or speak a message..." onkeypress="handleEnter(event)">
+                        <button id="mic-btn" class="send-btn" onclick="toggleListening()" style="background:transparent;border:1px solid var(--glass-border);">
+                            <i class="ri-mic-line"></i>
+                        </button>
+                        <button class="send-btn" onclick="sendMessage()"><i class="ri-send-plane-fill"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ PROFILE VIEW ============ -->
+            <div id="view-profile" class="hidden fade-in">
+                <div class="dashboard-header" style="display:flex;justify-content:space-between;align-items:end;">
+                    <div>
+                        <h1>Student Profile</h1>
+                        <p style="color:var(--text-muted);">Manage your personal and academic identity.</p>
+                    </div>
+                </div>
+
+                <!-- Display View -->
+                <div id="profile-display-view" class="profile-container" style="display:flex;flex-direction:column;gap:20px;margin-top:20px;">
+                    <div class="glass-card" style="padding:28px;border-radius:16px;display:flex;align-items:center;gap:28px;">
+                        <!-- Profile photo or initials avatar -->
+                        <div style="position:relative;flex-shrink:0;">
+                            <div id="profile-avatar-large" class="profile-avatar-large" style="width:90px;height:90px;background:linear-gradient(45deg,var(--tan),#a65fec);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#000;font-weight:bold;overflow:hidden;">
+                                <img id="profile-photo-display" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;border-radius:50%;">
+                                <span id="profile-initials-display"></span>
+                            </div>
+                        </div>
+                        <div style="flex:1;">
+                            <h2 id="disp-name" style="margin:0;color:#fff;font-size:1.6rem;">Student Name</h2>
+                            <p id="disp-email" style="color:var(--text-muted);margin:4px 0;font-size:0.9rem;">
+                                <i class="ri-mail-check-line" style="color:#2ecc71;"></i>
+                                <span id="disp-email-text">student@example.com</span>
+                            </p>
+                            <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
+                                <span id="disp-stream-badge" class="badge" style="background:rgba(166,95,236,0.2);color:#a65fec;padding:4px 12px;border-radius:20px;font-size:0.82rem;">CSE Student</span>
+                                <span id="disp-year-badge" class="badge" style="background:rgba(255,153,102,0.2);color:#ff9966;padding:4px 12px;border-radius:20px;font-size:0.82rem;">2025 Batch</span>
+                            </div>
+                        </div>
+                        <button onclick="toggleProfileEdit(true)" class="btn-primary" style="padding:10px 22px;white-space:nowrap;">
+                            <i class="ri-edit-2-line"></i> Edit Profile
+                        </button>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+                        <div class="glass-card" style="padding:28px;border-radius:16px;">
+                            <h3 style="color:var(--tan);margin-top:0;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:10px;margin-bottom:18px;font-size:1rem;">
+                                <i class="ri-information-line"></i> Personal & Academic Info
+                            </h3>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;color:#fff;">
+                                <div><label style="color:var(--text-muted);font-size:0.8rem;display:block;margin-bottom:3px;">Phone Number</label><div id="disp-phone">—</div></div>
+                                <div><label style="color:var(--text-muted);font-size:0.8rem;display:block;margin-bottom:3px;">Location</label><div id="disp-location">—</div></div>
+                                <div><label style="color:var(--text-muted);font-size:0.8rem;display:block;margin-bottom:3px;">Current CGPA</label><div id="disp-cgpa-val" style="color:#2ecc71;font-weight:600;">—</div></div>
+                                <div><label style="color:var(--text-muted);font-size:0.8rem;display:block;margin-bottom:3px;">University/College</label><div id="disp-college">—</div></div>
+                            </div>
+                            <div style="margin-top:22px;">
+                                <label style="color:var(--text-muted);font-size:0.8rem;display:block;margin-bottom:6px;">Bio / Summary</label>
+                                <p id="disp-bio" style="color:#ddd;line-height:1.6;margin:0;background:rgba(0,0,0,0.2);padding:14px;border-radius:8px;font-size:0.9rem;">—</p>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:20px;">
+                            <div class="glass-card" style="padding:28px;border-radius:16px;">
+                                <h3 style="color:var(--tan);margin-top:0;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:10px;margin-bottom:18px;font-size:1rem;">
+                                    <i class="ri-code-s-slash-line"></i> Skills & Links
+                                </h3>
+                                <div style="margin-bottom:18px;">
+                                    <label style="color:var(--text-muted);font-size:0.8rem;display:block;margin-bottom:8px;">Tech Stack</label>
+                                    <div id="disp-skills" style="display:flex;flex-wrap:wrap;gap:7px;"></div>
+                                </div>
+                                <div style="display:flex;flex-direction:column;gap:10px;">
+                                    <a href="#" id="disp-linkedin" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;padding:10px;background:rgba(0,119,181,0.2);border-radius:8px;font-size:0.88rem;transition:0.3s;"><i class="ri-linkedin-fill"></i> LinkedIn Profile</a>
+                                    <a href="#" id="disp-github" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;padding:10px;background:rgba(51,51,51,0.4);border-radius:8px;font-size:0.88rem;transition:0.3s;"><i class="ri-github-fill"></i> GitHub Profile</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit View -->
+                <div id="profile-edit-view" class="profile-container hidden" style="margin-top:20px;">
+                    <div class="glass-card" style="padding:36px;border-radius:16px;border:1px solid var(--tan);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;">
+                            <h2 style="margin:0;color:var(--tan);">Edit Your Profile</h2>
+                            <button onclick="toggleProfileEdit(false)" style="background:transparent;color:var(--text-muted);border:1px solid var(--text-muted);padding:8px 18px;border-radius:6px;cursor:pointer;">Cancel</button>
+                        </div>
+                        <form onsubmit="saveProfile(event)" class="profile-grid">
+                            <!-- PHOTO UPLOAD ROW -->
+                            <div style="grid-column:span 2;display:flex;align-items:center;gap:24px;padding:18px;background:rgba(255,255,255,0.03);border:1px dashed rgba(213,184,147,0.3);border-radius:12px;margin-bottom:8px;">
+                                <div style="position:relative;flex-shrink:0;">
+                                    <div id="edit-avatar-preview" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(45deg,var(--tan),#a65fec);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:bold;color:#000;overflow:hidden;border:2px solid rgba(213,184,147,0.4);">
+                                        <img id="edit-photo-preview-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;border-radius:50%;">
+                                        <span id="edit-avatar-initials"></span>
+                                    </div>
+                                    <label for="p-photo" style="position:absolute;bottom:0;right:0;width:26px;height:26px;background:var(--tan);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #25344F;" title="Change photo">
+                                        <i class="ri-camera-line" style="font-size:0.75rem;color:#25344F;"></i>
+                                    </label>
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="color:#fff;font-weight:500;font-size:0.9rem;margin-bottom:4px;">Profile Photo</div>
+                                    <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:10px;">Upload a photo (JPG, PNG — max 2MB). It appears on your profile and sidebar.</div>
+                                    <label for="p-photo" style="display:inline-flex;align-items:center;gap:8px;background:rgba(213,184,147,0.1);border:1px solid rgba(213,184,147,0.4);color:var(--tan);padding:7px 16px;border-radius:8px;font-size:0.82rem;cursor:pointer;font-family:'Poppins',sans-serif;transition:background 0.2s;" onmouseenter="this.style.background='rgba(213,184,147,0.18)'" onmouseleave="this.style.background='rgba(213,184,147,0.1)'">
+                                        <i class="ri-upload-2-line"></i> Choose Photo
+                                    </label>
+                                    <input type="file" id="p-photo" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleProfilePhotoUpload(this)">
+                                    <button type="button" id="remove-photo-btn" onclick="removeProfilePhoto()" style="display:none;margin-left:10px;background:transparent;border:1px solid rgba(231,76,60,0.4);color:#e74c3c;padding:7px 14px;border-radius:8px;font-size:0.82rem;cursor:pointer;font-family:'Poppins',sans-serif;">
+                                        <i class="ri-delete-bin-line"></i> Remove
+                                    </button>
+                                </div>
+                            </div>
+
+                            <h3 style="grid-column:span 2;color:#fff;font-size:0.95rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:5px;margin-top:0;">Basic Details</h3>
+                            <div class="input-group"><label>Full Name</label><input type="text" id="p-name" placeholder="Enter your full name"></div>
+                            <div class="input-group"><label>Phone Number</label><input type="tel" id="p-mobile" placeholder="+91 98765 43210"></div>
+                            <div class="input-group"><label>Location</label><input type="text" id="p-location" placeholder="City, Country"></div>
+                            <div class="input-group"><label>Bio / Summary</label><input type="text" id="p-bio" placeholder="Short professional summary"></div>
+                            <h3 style="grid-column:span 2;color:#fff;font-size:0.95rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:5px;margin-top:10px;">Academic Info</h3>
+                            <div class="input-group"><label>Stream/Major</label>
+                                <select id="p-stream" style="background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);color:rgb(251,244,244);border-radius:8px;padding:12px;width:100%;box-sizing:border-box;">
+                                    <option value="CSE" style="color:black;">Computer Science (CSE)</option>
+                                    <option value="IT" style="color:black;">Information Technology</option>
+                                    <option value="ECE" style="color:black;">Electronics (ECE)</option>
+                                    <option value="ME" style="color:black;">Mechanical</option>
+                                </select>
+                            </div>
+                            <div class="input-group"><label>Current CGPA</label><input type="number" step="0.01" min="0" max="10" id="p-cgpa" placeholder="e.g., 8.5"></div>
+                            <div class="input-group"><label>College/University</label><input type="text" id="p-college" placeholder="Institute Name"></div>
+                            <div class="input-group"><label>Graduation Year</label><input type="number" min="2020" max="2035" id="p-year" placeholder="2025"></div>
+                            <h3 style="grid-column:span 2;color:#fff;font-size:0.95rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:5px;margin-top:10px;">Professional Links</h3>
+                            <div class="input-group"><label>LinkedIn URL</label><input type="url" id="p-linkedin" placeholder="https://linkedin.com/in/..."></div>
+                            <div class="input-group"><label>GitHub URL</label><input type="url" id="p-github" placeholder="https://github.com/..."></div>
+                            <div class="input-group" style="grid-column:span 2;"><label>Technical Skills (Comma separated)</label><input type="text" id="p-skills" placeholder="Java, Python, React, SQL, AWS..."></div>
+                            <div style="grid-column:span 2;margin-top:14px;">
+                                <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:12px;">Save Changes <i class="ri-save-line"></i></button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Rename Modal -->
+    <div id="rename-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3>Rename Item</h3>
+            <input type="text" id="rename-input" class="modal-input" placeholder="Enter new name">
+            <div class="modal-btns">
+                <button class="btn-modal btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-modal btn-confirm" onclick="confirmRename()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-loader" class="page-loader hidden">
+        <div class="loader-text" id="loader-text">Loading</div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+
+</body>
+</html>
