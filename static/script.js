@@ -237,7 +237,7 @@ function stopVoiceListen() {
 async function sendVoiceMessage(text) {
     setVoiceStatus('thinking');
     try {
-        const response = await fetch('http://127.0.0.1:5000/voice-chat', {
+        const response = await fetch('/voice-chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: text })
@@ -269,7 +269,7 @@ async function speakVoiceReply(text) {
 
 async function tryElevenLabsTTS(text) {
     try {
-        const response = await fetch('http://127.0.0.1:5000/tts', {
+        const response = await fetch('/tts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: text })
@@ -560,7 +560,7 @@ async function analyzeText() {
 
 async function sendResumeToBackend(formData, fileName) {
     try {
-        const response = await fetch('http://127.0.0.1:5000/analyze-resume', { method: 'POST', body: formData });
+        const response = await fetch('/analyze-resume', { method: 'POST', body: formData });
         const data = await response.json();
         hideScanningOverlay();
         if (!response.ok || data.error) { alert('Analysis Error: ' + (data.error || 'Unknown error.')); return; }
@@ -904,7 +904,7 @@ function scrollToBottom() { if (chatBox) chatBox.scrollTop = chatBox.scrollHeigh
 async function initializeChat() {
     // Try to load history from Supabase
     try {
-        const res = await fetch('http://127.0.0.1:5000/get-history');
+        const res = await fetch('/get-history');
         const serverChats = await res.json();
         if (serverChats && serverChats.length > 0) {
             // Merge server chats with local ones (server is source of truth)
@@ -953,7 +953,7 @@ async function loadChat(id) {
 
     // Try to load messages from Supabase
     try {
-        const res = await fetch(`http://127.0.0.1:5000/get-chat/${id}`);
+        const res = await fetch(`/get-chat/${id}`);
         const serverMessages = await res.json();
         if (serverMessages && serverMessages.length > 0) {
             chat.messages = serverMessages.map(m => ({ role: m.role, text: m.content }));
@@ -1039,7 +1039,7 @@ async function sendMessage() {
     if (!activeChatId) { activeChatId = 'chat_' + Date.now(); localStorage.setItem('current_chat_id', activeChatId); currentChatId = activeChatId; }
 
     try {
-        const response = await fetch('http://127.0.0.1:5000/chat', {
+        const response = await fetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: text, chat_id: activeChatId, title: text.substring(0, 30) })
