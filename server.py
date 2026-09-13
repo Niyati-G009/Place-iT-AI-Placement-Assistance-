@@ -1,68 +1,42 @@
 import os
 import re
 import json
+import io
 import requests
-from flask import Flask, request, jsonify, render_template, Response
+from flask import Flask, request, jsonify, render_template, session, Response
 from flask_cors import CORS
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
 from openai import OpenAI
+from dotenv import load_dotenv
+from elevenlabs.client import ElevenLabs
 
 import PyPDF2
 import docx
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', '46d0f03be8976d4e2e0c2bef4c67ba5d')
+app.secret_key = '46d0f03be8976d4e2e0c2bef4c67ba5d'
 
-# --- CONFIGURATION (env vars override hardcoded values) ---
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://votcomqtsfmqlxaioyry.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvdGNvbXF0c2ZtcWx4YWlveXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5OTMxMjAsImV4cCI6MjA4NDU2OTEyMH0.AnjJzyndB2gIhcStmX1_571yJS-B-nYjNRz3L8Qr3_w")
+# --- CONFIGURATION ---
+SUPABASE_URL = "https://votcomqtsfmqlxaioyry.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvdGNvbXF0c2ZtcWx4YWlveXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5OTMxMjAsImV4cCI6MjA4NDU2OTEyMH0.AnjJzyndB2gIhcStmX1_571yJS-B-nYjNRz3L8Qr3_w"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-try:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    print("✅ Supabase connected")
-except Exception as e:
-    print(f"❌ Supabase connection failed: {e}")
-    supabase = None
-
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "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")
+OPENROUTER_API_KEY = "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"
 OR_CLIENT = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY,
 )
-# Primary model with fallback
-MODEL_NAME = os.environ.get("MODEL_NAME", "google/gemini-2.0-flash-001")
-FALLBACK_MODEL = "openai/gpt-4o-mini"
+MODEL_NAME = "google/gemini-2.0-flash-001"
 
-ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", 'sk_1face4687533aebeac9229f37584f4b2e689f3ad0d093a57')
+ELEVENLABS_API_KEY =os.getenv("ELEVENLABS_API_KEY")
 ELEVENLABS_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"
+
+client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
 CORS(app)
 
 # --- HELPER FUNCTIONS ---
-
-def call_llm(messages, model=None):
-    """Call OpenRouter with automatic fallback to gpt-4o-mini if primary fails."""
-    primary = model or MODEL_NAME
-    try:
-        completion = OR_CLIENT.chat.completions.create(
-            model=primary,
-            messages=messages,
-            timeout=30
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        print(f"⚠️ Primary model '{primary}' failed: {e}. Trying fallback '{FALLBACK_MODEL}'...")
-        try:
-            completion = OR_CLIENT.chat.completions.create(
-                model=FALLBACK_MODEL,
-                messages=messages,
-                timeout=30
-            )
-            return completion.choices[0].message.content
-        except Exception as e2:
-            print(f"❌ Fallback model also failed: {e2}")
-            raise e2
 
 def extract_text_from_file(file):
     file.seek(0)
@@ -90,18 +64,20 @@ def extract_text_from_file(file):
         return None
 
 def clean_json_response(raw_text):
+    """Strips markdown fences, whitespace, and extracts first JSON object/array."""
     text = raw_text.strip()
+    # Remove markdown code fences
     text = re.sub(r'^```[a-zA-Z]*\s*', '', text)
     text = re.sub(r'\s*```$', '', text)
     text = text.strip()
+    # Extract first JSON object if there's surrounding text
     match = re.search(r'\{[\s\S]*\}', text)
     if match:
         return match.group(0)
     return text
 
 def get_chat_history_from_db(chat_id, limit=10):
-    if not supabase:
-        return []
+    """Fetch recent messages for a chat from Supabase to maintain context."""
     try:
         response = (
             supabase.table('messages')
@@ -111,21 +87,14 @@ def get_chat_history_from_db(chat_id, limit=10):
             .limit(limit)
             .execute()
         )
+        # Reverse so oldest is first
         messages = list(reversed(response.data))
-        return [{"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]} for m in messages]
+        return [{"role": m["role"] if m["role"] == "user" else "assistant", "content": m["content"]} for m in messages]
     except Exception as e:
         print(f"History fetch error: {e}")
         return []
 
 # --- ROUTES ---
-
-@app.route('/health')
-def health():
-    return jsonify({
-        "status": "ok",
-        "supabase": supabase is not None,
-        "model": MODEL_NAME
-    })
 
 @app.route('/')
 def home():
@@ -133,19 +102,15 @@ def home():
 
 @app.route('/get-history', methods=['GET'])
 def get_history():
-    if not supabase:
-        return jsonify([])
     try:
         response = supabase.table('chats').select("*").order('created_at', desc=True).execute()
         return jsonify(response.data)
     except Exception as e:
         print(f"Get history error: {e}")
-        return jsonify([])
+        return jsonify([]), 500
 
 @app.route('/get-chat/<chat_id>', methods=['GET'])
 def get_chat_messages(chat_id):
-    if not supabase:
-        return jsonify([])
     try:
         response = (
             supabase.table('messages')
@@ -157,7 +122,7 @@ def get_chat_messages(chat_id):
         return jsonify(response.data)
     except Exception as e:
         print(f"Get chat error: {e}")
-        return jsonify([])
+        return jsonify([]), 500
 
 @app.route('/chat', methods=['POST'])
 def chat_endpoint():
@@ -170,19 +135,19 @@ def chat_endpoint():
         if not user_message:
             return jsonify({"reply": "Please say something!"})
 
-        # Save to Supabase if available
-        if supabase and chat_id:
-            try:
-                existing_chat = supabase.table('chats').select("id").eq("id", chat_id).execute()
-                if not existing_chat.data:
-                    supabase.table('chats').insert({"id": chat_id, "title": chat_title}).execute()
-                supabase.table('messages').insert({
-                    "chat_id": chat_id, "role": "user", "content": user_message
-                }).execute()
-            except Exception as db_err:
-                print(f"DB write error (non-fatal): {db_err}")
+        # Upsert chat record
+        existing_chat = supabase.table('chats').select("id").eq("id", chat_id).execute()
+        if not existing_chat.data:
+            supabase.table('chats').insert({"id": chat_id, "title": chat_title}).execute()
 
-        history = get_chat_history_from_db(chat_id, limit=10) if chat_id else []
+        # Save user message
+        supabase.table('messages').insert({
+            "chat_id": chat_id, "role": "user", "content": user_message
+        }).execute()
+
+        # Build conversation history for context
+        history = get_chat_history_from_db(chat_id, limit=10)
+        # Remove the last message since we'll add it ourselves
         if history and history[-1]["content"] == user_message:
             history = history[:-1]
 
@@ -200,15 +165,16 @@ def chat_endpoint():
             {"role": "user", "content": user_message}
         ]
 
-        ai_reply = call_llm(messages)
+        completion = OR_CLIENT.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages
+        )
+        ai_reply = completion.choices[0].message.content
 
-        if supabase and chat_id:
-            try:
-                supabase.table('messages').insert({
-                    "chat_id": chat_id, "role": "ai", "content": ai_reply
-                }).execute()
-            except Exception as db_err:
-                print(f"DB save reply error (non-fatal): {db_err}")
+        # Save AI reply
+        supabase.table('messages').insert({
+            "chat_id": chat_id, "role": "ai", "content": ai_reply
+        }).execute()
 
         return jsonify({"reply": ai_reply})
 
@@ -224,17 +190,23 @@ def voice_chat_endpoint():
         if not user_message:
             return jsonify({"reply": "I didn't catch that."})
 
-        ai_reply = call_llm([
-            {
-                "role": "system",
-                "content": (
-                    "You are Place-iT voice assistant. Reply in plain conversational English only. "
-                    "NO markdown, NO bullet points, NO lists. Max 2 sentences. Be warm and direct."
-                )
-            },
-            {"role": "user", "content": user_message}
-        ])
+        completion = OR_CLIENT.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are Place-iT voice assistant. Reply in plain conversational English only. "
+                        "NO markdown, NO bullet points, NO lists. Max 2 sentences. Be warm and direct."
+                    )
+                },
+                {"role": "user", "content": user_message}
+            ]
+        )
+        ai_reply = completion.choices[0].message.content
+        # Strip all markdown for clean TTS
         clean_reply = re.sub(r'[*_`#>\[\]\-]', '', ai_reply).strip()
+
         return jsonify({"reply": clean_reply})
 
     except Exception as e:
@@ -313,10 +285,16 @@ Resume:
 
 Return ONLY the JSON. No explanation, no markdown fences."""
 
-        raw_content = call_llm([{"role": "user", "content": prompt}])
+        completion = OR_CLIENT.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        raw_content = completion.choices[0].message.content
         cleaned = clean_json_response(raw_content)
         result = json.loads(cleaned)
 
+        # Validate required fields exist
         required_fields = ["ats_score", "experience_level", "keyword_match",
                            "matched_keywords", "missing_skills", "feedback_tips",
                            "strengths", "weak_phrases", "summary"]
@@ -325,11 +303,13 @@ Return ONLY the JSON. No explanation, no markdown fences."""
                 result[field] = [] if field in ["matched_keywords", "missing_skills",
                                                  "feedback_tips", "strengths", "weak_phrases"] else ""
 
+        # Clamp ATS score
         result["ats_score"] = max(0, min(100, int(result.get("ats_score", 0))))
+
         return jsonify(result)
 
     except json.JSONDecodeError as e:
-        print(f"JSON parse error: {e}")
+        print(f"JSON parse error: {e}\nRaw: {raw_content if 'raw_content' in locals() else 'N/A'}")
         return jsonify({"error": "AI returned an unexpected format. Please try again."}), 500
     except Exception as e:
         print(f"Analysis Error: {e}")
